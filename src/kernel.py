@@ -8,37 +8,37 @@ def _meshify(z: np.ndarray):
     return (z_mesh, z_mesh.T)
 
 
-def min_kernel(t: np.ndarray):
+def brownian(t: np.ndarray):
     s, t = _meshify(t)
     out = np.minimum(s, t)
     return out
 
 
-def bridge_kernel(t: np.ndarray):
+def bridge(t: np.ndarray):
     s, t = _meshify(t)
     out = np.minimum(s, t) - s * t
     return out
 
 
-def smooth_bridge_kernel(t: np.ndarray, epsilon=1.0):
+def smooth_bridge(t: np.ndarray, epsilon=1.0):
     s, t = _meshify(t)
     out = -epsilon * logsumexp(np.dstack([-s / epsilon, -t / epsilon]), axis=2) - s * t
     return out
 
 
-def gaussian_kernel(t: np.ndarray, theta=1):
+def gaussian(t: np.ndarray, theta=1):
     s, t = _meshify(t)
     out = np.exp(-((s - t) ** 2) / theta)
     return out
 
 
-def laplacian_kernel(t: np.ndarray, theta=1.0):
+def laplacian(t: np.ndarray, theta=1.0):
     s, t = _meshify(t)
     out = np.exp(-np.abs(s - t) / theta)
     return out
 
 
-def matern32_kernel(t: np.ndarray, theta=1.0):
+def matern32(t: np.ndarray, theta=1.0):
     s, t = _meshify(t)
     d = np.abs(s - t)
     sqrt3_d = np.sqrt(3) * d / theta
@@ -46,26 +46,26 @@ def matern32_kernel(t: np.ndarray, theta=1.0):
     return out
 
 
-def polynomial_kernel(t: np.ndarray, degree=2, c=0):
+def polynomial(t: np.ndarray, degree=2, c=0):
     s, t = _meshify(t)
     out = (s * t + c) ** degree
     return out
 
 
-def periodic_kernel(t: np.ndarray, period=1.0, theta=1.0):
+def periodic(t: np.ndarray, period=1.0, theta=1.0):
     s, t = _meshify(t)
     sine_part = np.sin(np.pi * np.abs(s - t) / period) ** 2
     out = np.exp(-2 * sine_part / theta**2)
     return out
 
 
-def integrated_brownian_kernel(x: np.ndarray):
+def integrated_brownian(x: np.ndarray):
     s, t = _meshify(t)
     out = s**2 * (t / 2 - s / 6)
     return out
 
 
-def chi_square_kernel(t: np.ndarray, gamma=1.0):
+def chi_square(t: np.ndarray, gamma=1.0):
     """
     Computes the Exponential Chi-Square kernel.
     NOTE: Inputs 't' must be non-negative (t >= 0).
