@@ -59,6 +59,12 @@ def periodic_kernel(t: np.ndarray, period=1.0, theta=1.0):
     return out
 
 
+def integrated_brownian_kernel(x: np.ndarray):
+    s, t = _meshify(t)
+    out = s**2 * (t / 2 - s / 6)
+    return out
+
+
 def chi_square_kernel(t: np.ndarray, gamma=1.0):
     """
     Computes the Exponential Chi-Square kernel.
