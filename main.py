@@ -15,6 +15,7 @@ from manim import (
     UL,
     UP,
     UR,
+    WHITE,
     YELLOW,
     Arrow,
     Axes,
@@ -503,3 +504,242 @@ class LangevinInverseProblem(Scene):
 
         particles.remove_updater(update_scene)
         self.wait(1)
+
+
+def generate_brownian_bridge(start_val, end_val, steps=100, sigma=0.8):
+    """始点と終点を結ぶブラウン橋のパスを生成"""
+    dt = 1.0 / steps
+    t_vals = np.linspace(0, 1, steps + 1)
+
+    # 1. 標準ブラウン運動 W(t) を生成 (W(0)=0)
+    noise = np.random.normal(0, np.sqrt(dt), steps)
+    w_process = np.concatenate(([0], np.cumsum(noise)))
+
+    # 2. 終端条件を満たすように変換 (tは0~1正規化されている前提)
+    # B(t) = x0 + W(t) - t * (W(1) - (x1 - x0))
+    # これにより B(0)=x0, B(1)=x1 となる
+    bridge = start_val + w_process - t_vals * (w_process[-1] - (end_val - start_val))
+
+    # ノイズ強度 sigma を W(t) の部分に掛けるイメージで調整
+    # ただし単純なスケーリングだと端点がずれるため、
+    # 実際には W(t) 生成時に sigma を反映させるのが正しいが、
+    # 上記式は W(t) が標準(sigma=1)前提の変換式。
+    # 任意の sigma に対応させるには、noise 生成時に sigma を掛け、
+    # 変換式自体は線形なのでそのままで成立する。
+
+    noise = np.random.normal(0, sigma * np.sqrt(dt), steps)
+    w_process = np.concatenate(([0], np.cumsum(noise)))
+    bridge = start_val + w_process - t_vals * (w_process[-1] - (end_val - start_val))
+
+    return t_vals, bridge
+
+
+def run_brownian_bridge_logic(scene):
+    """シーン4: ブラウン橋 (Brownian Bridge) デモ"""
+    np.random.seed(1234)  # 再現性のため
+
+    # 1. 座標軸 (t: 0->1 を大きく表示)
+    axes = Axes(
+        x_range=[-0.1, 1.2, 0.2],
+        y_range=[-2.5, 2.5, 0.5],
+        x_length=10,
+        y_length=6,
+        axis_config={"include_tip": False, "color": GRAY},
+    ).add_coordinates()
+
+    labels = axes.get_axis_labels(x_label="t", y_label="x")
+
+    # タイトル削除（要望通り）
+    scene.play(FadeIn(axes), Write(labels), run_time=1.5)
+
+    # 2. 点のプロット
+    # t=0 に4点
+    start_points_group = VGroup()
+    start_dots = []
+    start_y_values = np.linspace(-1.5, 1.5, 4) + np.random.normal(0, 0.2, 4)
+
+    for y in start_y_values:
+        dot = Dot(point=axes.c2p(0, y), color=BLUE, radius=0.1)
+        start_dots.append(dot)
+        start_points_group.add(dot)
+
+    # t=1 に5点
+    end_points_group = VGroup()
+    end_dots = []
+    end_y_values = np.linspace(-1.8, 1.8, 5) + np.random.normal(0, 0.2, 5)
+
+    for y in end_y_values:
+        dot = Dot(point=axes.c2p(1, y), color=RED, radius=0.1)
+        end_dots.append(dot)
+        end_points_group.add(dot)
+
+    scene.play(FadeIn(start_points_group), FadeIn(end_points_group), run_time=1.0)
+
+    # テキスト補助
+    t0_label = Text("t=0", font_size=24, color=BLUE).next_to(axes.c2p(0, 2.5), UP)
+    t1_label = Text("t=1", font_size=24, color=RED).next_to(axes.c2p(1, 2.5), UP)
+    scene.play(Write(t0_label), Write(t1_label), run_time=0.5)
+
+    # 3. ランダムに結ぶループ (10回)
+    # 生成したパスを保存しておくグループ
+    bridges = VGroup()
+    scene.add(bridges)
+
+    for i in range(10):
+        # ランダム選択
+        s_idx = np.random.randint(0, len(start_dots))
+        e_idx = np.random.randint(0, len(end_dots))
+
+        s_dot = start_dots[s_idx]
+        e_dot = end_dots[e_idx]
+
+        # ハイライト (拡大 & 色変更)
+        scene.play(
+            s_dot.animate.scale(1.5).set_color(YELLOW),
+            e_dot.animate.scale(1.5).set_color(YELLOW),
+            run_time=0.2,
+        )
+
+        # パス計算
+        start_val = start_y_values[s_idx]
+        end_val = end_y_values[e_idx]
+        t_vals, x_vals = generate_brownian_bridge(
+            start_val, end_val, steps=200, sigma=1.2
+        )
+
+        # パス描画用VMobject作成
+        bridge_path = VMobject()
+        points = [axes.c2p(t, x) for t, x in zip(t_vals, x_vals)]
+        bridge_path.set_points_as_corners(points)
+        bridge_path.set_color(YELLOW)
+        bridge_path.set_stroke(width=2, opacity=0.8)
+
+        # アニメーション: Create で左から右へ描画
+        scene.play(Create(bridge_path), run_time=0.8, rate_func=linear)
+
+        # 描画完了後、パスを薄くして残す
+        bridges.add(bridge_path)
+        bridge_path.set_color(WHITE).set_stroke(opacity=0.3, width=1)
+
+        # ドットを元に戻す
+        scene.play(
+            s_dot.animate.scale(1 / 1.5).set_color(BLUE),
+            e_dot.animate.scale(1 / 1.5).set_color(RED),
+            run_time=0.2,
+        )
+
+    scene.wait(1)
+
+
+def run_trajectory_inference_logic(scene):
+    """シーン4: Brownian Bridgeによるパス生成"""
+    np.random.seed(123)
+    n_paths = 10
+    t_points = [0, 0.25, 0.5, 0.75, 1.0]
+    points_per_t = 4
+
+    # 軸の設定 (t: 0-1.2, x: -3-3)
+    axes = Axes(
+        x_range=[0, 1.2, 0.25],
+        y_range=[-3, 3, 1],
+        x_length=10,
+        y_length=6,
+        axis_config={"include_tip": True, "color": GRAY},
+    ).add_coordinates()
+    labels = axes.get_axis_labels(x_label="t", y_label="x")
+
+    scene.play(FadeIn(axes), Write(labels), run_time=1.5)
+
+    # --- 1. ランダムな点を打つ ---
+    all_dots = VGroup()  # 全ての点のグループ
+    dots_by_t = []  # 時刻ごとのDotリストのリスト [[Dot, Dot...], [Dot...]]
+
+    for t in t_points:
+        dots_at_t = []
+        # x座標をランダム生成
+        x_coords = np.random.uniform(-2.5, 2.5, points_per_t)
+        for x in x_coords:
+            dot = Dot(color=WHITE, radius=0.06)
+            dot.move_to(axes.c2p(t, x))
+            all_dots.add(dot)
+            dots_at_t.append(dot)
+        dots_by_t.append(dots_at_t)
+
+    scene.play(FadeIn(all_dots), run_time=1.0)
+
+    # --- 2. パス生成ループ ---
+    finished_paths = VGroup()
+    scene.add(finished_paths)
+
+    for i in range(n_paths):
+        # 進行状況表示
+        prog_text = Text(
+            f"Path: {i + 1}/{n_paths}", font_size=24, color=YELLOW
+        ).to_corner(UL)
+        scene.add(prog_text)
+
+        # 始点 (t=0) をランダムに選ぶ
+        current_dot = np.random.choice(dots_by_t[0])
+        scene.play(Flash(current_dot, color=YELLOW, flash_radius=0.2), run_time=0.3)
+
+        # 現在のパスのセグメントを保存するリスト
+        current_path_segments = VGroup()
+
+        # t=0 -> 0.25 -> 0.5 ... と繋いでいく
+        for j in range(len(t_points) - 1):
+            t_start = t_points[j]
+            t_end = t_points[j + 1]
+
+            # 始点の座標 (axes座標系から値に戻すのは面倒なので保持しておいたほうが楽だが、ここではget_centerから逆算)
+            start_point = current_dot.get_center()
+            p_start = axes.p2c(start_point)
+            x_start = p_start[1]
+
+            # 次の点をランダムに選ぶ
+            next_dot = np.random.choice(dots_by_t[j + 1])
+            end_point = next_dot.get_center()
+            p_end = axes.p2c(end_point)
+            x_end = p_end[1]
+
+            # ハイライト
+            # scene.play(Flash(next_dot, color=YELLOW, flash_radius=0.2), run_time=0.2)
+
+            # Brownian Bridge計算
+            t_vals, x_vals = generate_brownian_bridge(
+                t_start, x_start, t_end, x_end, dt=0.01, sigma=0.6
+            )
+
+            # VMobject作成
+            points = [axes.c2p(t, x) for t, x in zip(t_vals, x_vals)]
+            segment = VMobject()
+            segment.set_points_as_corners(points)
+            segment.set_color(YELLOW)
+            segment.set_stroke(width=2)
+
+            # 描画アニメーション
+            scene.play(Create(segment), run_time=0.4, rate_func=linear)
+
+            current_path_segments.add(segment)
+            current_dot = next_dot
+
+        # パス完成後、薄くして残す
+        finished_paths.add(current_path_segments)
+        scene.play(
+            current_path_segments.animate.set_stroke(width=1, opacity=0.3).set_color(
+                YELLOW
+            ),
+            run_time=0.2,
+        )
+        scene.remove(prog_text)
+
+    scene.wait(1)
+
+
+class BrownianBridgeDemo(Scene):
+    def construct(self):
+        run_brownian_bridge_logic(self)
+
+
+class TrajectoryInference(Scene):
+    def construct(self):
+        run_trajectory_inference_logic(self)
