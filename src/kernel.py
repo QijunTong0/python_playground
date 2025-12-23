@@ -8,52 +8,52 @@ def _meshify(z: np.ndarray):
     return (z_mesh, z_mesh.T)
 
 
-def brownian(t: np.ndarray):
-    s, t = _meshify(t)
+def brownian(x: np.ndarray):
+    s, t = _meshify(x)
     out = np.minimum(s, t)
     return out
 
 
-def bridge(t: np.ndarray):
-    s, t = _meshify(t)
+def bridge(x: np.ndarray):
+    s, t = _meshify(x)
     out = np.minimum(s, t) - s * t
     return out
 
 
-def smooth_bridge(t: np.ndarray, epsilon=1.0):
-    s, t = _meshify(t)
+def smooth_bridge(x: np.ndarray, epsilon=1.0):
+    s, t = _meshify(x)
     out = -epsilon * logsumexp(np.dstack([-s / epsilon, -t / epsilon]), axis=2) - s * t
     return out
 
 
-def gaussian(t: np.ndarray, theta=1):
-    s, t = _meshify(t)
+def gaussian(x: np.ndarray, theta=1):
+    s, t = _meshify(x)
     out = np.exp(-((s - t) ** 2) / theta)
     return out
 
 
-def laplacian(t: np.ndarray, theta=1.0):
-    s, t = _meshify(t)
+def laplacian(x: np.ndarray, theta=1.0):
+    s, t = _meshify(x)
     out = np.exp(-np.abs(s - t) / theta)
     return out
 
 
-def matern32(t: np.ndarray, theta=1.0):
-    s, t = _meshify(t)
+def matern32(x: np.ndarray, theta=1.0):
+    s, t = _meshify(x)
     d = np.abs(s - t)
     sqrt3_d = np.sqrt(3) * d / theta
     out = (1 + sqrt3_d) * np.exp(-sqrt3_d)
     return out
 
 
-def polynomial(t: np.ndarray, degree=2, c=0):
-    s, t = _meshify(t)
+def polynomial(x: np.ndarray, degree=2, c=0):
+    s, t = _meshify(x)
     out = (s * t + c) ** degree
     return out
 
 
-def periodic(t: np.ndarray, period=1.0, theta=1.0):
-    s, t = _meshify(t)
+def periodic(x: np.ndarray, period=1.0, theta=1.0):
+    s, t = _meshify(x)
     sine_part = np.sin(np.pi * np.abs(s - t) / period) ** 2
     out = np.exp(-2 * sine_part / theta**2)
     return out
